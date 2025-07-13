@@ -97,8 +97,8 @@ with sync_playwright() as pw:
         
         
         if REFRESH:
-            with open(f"data/questions-{RUNTIME}.json", "w") as f:
-                json.dump(questions, f)
+            with open(f"data/questions-{RUNTIME}.json", "w", encoding="utf-8") as f:
+                json.dump(questions, f, ensure_ascii=False)
             print(f"Scraped {len(questions)} questions.")
         
             
