@@ -34,12 +34,12 @@ with sync_playwright() as pw:
     page.goto(BASE_URL % 1)
     max_page_n = int(page.query_selector("#Soru > div:nth-child(4) > div > ul > li:nth-last-child(2)").text_content())
     print(f"Total of {max_page_n} unfiltered pages present.")
+    print(f"Total of ~{max_page_n*25} questions present.")
 
     questions = []
     for page_n in range(1, max_page_n+1):
-        page.goto(BASE_URL % 1)
+        page.goto(BASE_URL % page_n)
         
-        already_added = False
         # Get all questions
         page_questions = []
         question_elements = page.query_selector_all("div.Question__text.hyphenate > a")
@@ -47,18 +47,10 @@ with sync_playwright() as pw:
             # replace '%shy;' symbol with "" 
             question = q_el.inner_text().replace("­", "").strip()
             
-            if question in list(map(lambda question: question["question"], questions)):
-                already_added = True
-                continue
+            # Set up a template for question and append to temporary list            
             question_href = q_el.get_attribute("href")
-            page_questions.append({"question": question, "question_choices": {}, "question_url": question_href, "question_number": None, "times_asked": None, "contestant_answer": None})
-        
-        # if question is already added skip it
-        if already_added:
-            print("Question is already present, passing.")
-            continue
-        
-        
+            page_questions.append({"question": question, "question_choices": {}, "question_url": question_href, "contestant_answer": None,
+                                   "page_url": BASE_URL % page_n, "audio": None})
         
         
         # go through each question on the page and also get the choices with the correct answer as uppercase
@@ -80,37 +72,34 @@ with sync_playwright() as pw:
                     right_answer = choice_letter
                 
                 page_questions[i]["question_choices"][choice_letter] = choice_text
-                
-                
-            details = page.query_selector("p.Details__text").inner_text().replace("­", "").strip()
+
+            # if question is already added skip it
+            filtering_questions = list(map(lambda q: str(q["question"])+str(q["question_choices"]), questions))
+            filtering_question = question["question"]+str(page_questions[i]["question_choices"])
+            if filtering_question in filtering_questions:
+                print(f"Question on page '{page_n}' is a duplicate of a question in page '{questions[list(map(lambda question: question["question"], questions)).index(question)]}'")
+                page_questions.pop(i)
+                continue
+
+
+            # Get audio IF PRESENT
+            audio = page.query_selector("audio > source")
+            if audio:
+                audio_src = audio.get_attribute("src")
+                page_questions[i]["audio"] = audio_src
             
-            # get what the contestant answered
-            contestant_answer = re.findall(r"(.)\ şıkkını\ seçerek", details)
-            if len(contestant_answer) > 0:
-                contestant_answer = contestant_answer[0]
-            else:
-                contestant_answer = right_answer
-                
-            page_questions[i]["contestant_answer"] = contestant_answer
-            
-            # get times asked    
-            times_asked = int(page.query_selector("div.Question__marathon .rakam").inner_text().replace("kez", "").strip())
-            page_questions[i]["times_asked"] = times_asked
-        
-            # check the nth-question from the url
-            question_number = int(page.query_selector("div.Map__glance span.Map__primary span.rakam").text_content().strip())
-            page_questions[i]["question_number"] = question_number
-        
         
             if UPDATE:
                 pass
                 # TODO implement UPDATE function that adds the questions on runtime
 
-        
-            
         questions.extend(page_questions.copy())
         
+        
         if REFRESH:
-            print(f"Scraped {len(page_questions)} questions.")
-            with open(f"data/questions-{RUNTIME}.json", "wb", encoding="utf-8") as f:
+            with open(f"data/questions-{RUNTIME}.json", "w") as f:
                 json.dump(questions, f)
+            print(f"Scraped {len(questions)} questions.")
+        
+            
+        
