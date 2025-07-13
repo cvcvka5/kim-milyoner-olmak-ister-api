@@ -22,8 +22,8 @@ if sum([REFRESH, UPDATE]) in [0, 2]:
 print(f"Mode set to: [{RUNMODE.upper()}]")
 
 
-
-BASE_URL = "https://milyonist.com/tv/milyoner/butun/sorular?sayfa=%d"
+BASE_URL = "https://milyonist.com"
+BASE_PAGINATION_URL = f"{BASE_URL}/tv/milyoner/butun/sorular?sayfa=%d"
 with sync_playwright() as pw:
     browser = pw.chromium.launch(headless=True)
     ctx = browser.new_context()
@@ -31,14 +31,14 @@ with sync_playwright() as pw:
     page = ctx.new_page()
     
     # Get max page number
-    page.goto(BASE_URL % 1)
+    page.goto(BASE_PAGINATION_URL % 1)
     max_page_n = int(page.query_selector("#Soru > div:nth-child(4) > div > ul > li:nth-last-child(2)").text_content())
     print(f"Total of {max_page_n} unfiltered pages present.")
     print(f"Total of ~{max_page_n*25} questions present.")
 
     questions = []
     for page_n in range(1, max_page_n+1):
-        page.goto(BASE_URL % page_n)
+        page.goto(BASE_PAGINATION_URL % page_n)
         
         # Get all questions
         page_questions = []
@@ -50,7 +50,7 @@ with sync_playwright() as pw:
             # Set up a template for question and append to temporary list            
             question_href = q_el.get_attribute("href")
             page_questions.append({"question": question, "question_choices": {}, "question_url": question_href, "contestant_answer": None,
-                                   "page_url": BASE_URL % page_n, "audio": None})
+                                   "page_url": BASE_PAGINATION_URL % page_n, "audio": None})
         
         
         # go through each question on the page and also get the choices with the correct answer as uppercase
@@ -85,7 +85,7 @@ with sync_playwright() as pw:
             # Get audio IF PRESENT
             audio = page.query_selector("audio > source")
             if audio:
-                audio_src = audio.get_attribute("src")
+                audio_src = f"{BASE_URL}{audio.get_attribute('src')}"
                 page_questions[i]["audio"] = audio_src
             
         
