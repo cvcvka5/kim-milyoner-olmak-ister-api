@@ -1,106 +1,175 @@
-from playwright.sync_api import sync_playwright
-import re
-import sys
-import json
+import requests
+from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
-
-RUNTIME = time.time()
-args = list(map(lambda arg: arg.lower(), sys.argv[1:]))
-REFRESH = 0
-UPDATE = 0
-RUNMODE = None
-if "refresh" in args:
-    REFRESH = 1
-    RUNMODE = "refresh"
-if "update" in args:
-    UPDATE = 1
-    RUNMODE = "update"
-    
-if sum([REFRESH, UPDATE]) in [0, 2]:
-    raise RuntimeError("You must pass either 'refresh' or 'UPDATE' as an argument.\n Refresh: Fully rebuilds the list.\n Update: Finds and adds the new questions.")
-
-print(f"Mode set to: [{RUNMODE.upper()}]")
+import json
+import random
 
 
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:116.0) Gecko/20100101 Firefox/116.0",
+    "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:115.0) Gecko/20100101 Firefox/115.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_6_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (iPad; CPU OS 16_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.67",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36 OPR/100.0.4815.50",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:116.0) Gecko/20100101 Firefox/116.0",
+    "Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Mobile Safari/537.36",
+    "Mozilla/5.0 (Android 13; Mobile; rv:116.0) Gecko/116.0 Firefox/116.0",
+]
 BASE_URL = "https://milyonist.com"
 BASE_PAGINATION_URL = f"{BASE_URL}/tv/milyoner/butun/sorular?sayfa=%d"
-with sync_playwright() as pw:
-    browser = pw.chromium.launch(headless=True)
-    ctx = browser.new_context()
-    ctx.add_cookies([{"name": "User-Agent", "value": "Mozilla/5.0", "url": "https://milyonist.com"}])
-    page = ctx.new_page()
+BASE_AUDIO_URL = "https://milyonist.com/api/tv/questions/%s/audio"
+
+def get_with_random_ua(url, max_retries = 5, retry = 0):
+    headers = {"User-Agent": random.choice(USER_AGENTS)}
+    try:
+        res = requests.get(url, headers=headers, timeout=20)
+    except requests.ConnectTimeout as e:
+        if retry > max_retries:
+            print(f"Retried {max_retries} times. But still failed.")
+            raise e
+        
+        res = get_with_random_ua(url, max_retries=max_retries, retry=retry+1)
+                
+    return res
+
+def get_audio_url(audio_id, retries=30):
+    for attempt in range(retries):
+        try:
+            res = get_with_random_ua(BASE_AUDIO_URL % audio_id)
+            audio_json = res.json()
+            audio_src = audio_json["url"].replace("\\", "")
+            return BASE_URL + audio_src
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            time.sleep(20)
+        except Exception as e:
+            print(f"[Attempt {attempt+1}] Unexpected error: {e}")
+            break
+        
+    print(f"[Attempt {attempt+1}] Failed to get audio for ID {audio_id}: {e}")
+    return None
+
+
+def get_n_questions() -> int:
+    res = get_with_random_ua(BASE_PAGINATION_URL % 1)
+    html = res.text
     
-    # Get max page number
-    page.goto(BASE_PAGINATION_URL % 1)
-    max_page_n = int(page.query_selector("#Soru > div:nth-child(4) > div > ul > li:nth-last-child(2)").text_content())
-    print(f"Total of {max_page_n} unfiltered pages present.")
-    print(f"Total of ~{max_page_n*25} questions present.")
+    soup = BeautifulSoup(html, "html.parser")
+    return int(soup.select_one("p.Summary__number.Summary__number--first").get_text().strip().replace(".", ""))
 
-    questions = []
-    for page_n in range(1, max_page_n+1):
-        page.goto(BASE_PAGINATION_URL % page_n)
+def get_n_pages() -> int:
+    res = get_with_random_ua(BASE_PAGINATION_URL % 1)
+    html = res.text
+    
+    soup = BeautifulSoup(html, "html.parser")
+    return int(soup.select_one("ul.pagination > li:nth-last-child(2)").get_text().strip().replace(".", ""))
+
+
+def get_question(question_url: str) -> dict:
+    try:
+        res = get_with_random_ua(question_url)
+        res.raise_for_status()
+    except requests.RequestException as e:
+        print(f"Failed to get question {question_url}: {e}")
+        return None
+    
+    html = res.text
+    soup = BeautifulSoup(html, "html.parser")
+    
+    question_text = soup.select_one("div.Question__text.hyphenate > p").get_text()
+    nth_question = int(soup.select_one("span.Map__primary > span").get_text().strip())
+    
+    asked_to = soup.select_one("span.Map__secondary").get_text().strip()
+    answered_correctly = False if soup.select_one("p.bildi") == None else True
+    
+    contestant_answer = None
+    choices = {}
+    right_answer = None
+    for choice in soup.select("div.Multiple.Multiple--hover div.Multiple__choices"):
+        letter = choice.select_one("span.Multiple__letter").get_text().lower()
+        answer = choice.select_one("span.Multiple__text").get_text()
         
-        # Get all questions
-        page_questions = []
-        question_elements = page.query_selector_all("div.Question__text.hyphenate > a")
-        for q_el in question_elements:
-            # replace '%shy;' symbol with "" 
-            question = q_el.inner_text().replace("­", "").strip()
+        if "Multiple__right_answer" in choice.get("class"):
+            if answered_correctly:
+                contestant_answer = letter
+            right_answer = letter
+            letter = letter.upper()
             
-            # Set up a template for question and append to temporary list            
-            question_href = q_el.get_attribute("href")
-            page_questions.append({"question": question, "question_choices": {}, "question_url": question_href, "contestant_answer": None,
-                                   "page_url": BASE_PAGINATION_URL % page_n, "audio": None})
+        choices[letter] = answer
+    
+    if contestant_answer == None:
+        details = soup.select_one("div.Details > p.Details__text").get_text()
+        try:
+            contestant_answer = details.split("—")[1].strip()[0].lower()
+        except IndexError:
+            contestant_answer = None
+    
+    audio = soup.select_one("milyonist-player")
+    if audio:
+        audio_id = audio.get(":for")
+        audio = get_audio_url(audio_id)
         
-        
-        # go through each question on the page and also get the choices with the correct answer as uppercase
-        # ex: a) Law b) Order C) Correct d) Random 
-        for i, question in enumerate(page_questions):
-            url = question["question_url"]
-            page.goto(url)
-            
-            # Get the choices
-            choices = page.query_selector_all("div.Multiple__choices")
-            right_answer = None
-            for choice in choices:
-                choice_letter = choice.query_selector("span.Multiple__letter").text_content().strip().lower()
-                choice_text = choice.query_selector("span.Multiple__text").text_content().strip()
-                
-                # if its right uppercase the letter    
-                if "right_answer" in choice.get_attribute("class"):
-                    choice_letter = choice_letter.upper()
-                    right_answer = choice_letter
-                
-                page_questions[i]["question_choices"][choice_letter] = choice_text
+    
+    
+    question = {"question": question_text, "choices": choices, "answer": right_answer, "question-url": question_url, "audio": audio,
+                "contestant": {"name": asked_to, "answer": contestant_answer, "correct": answered_correctly, "nth-question": nth_question}
+                }
 
-            # if question is already added skip it
-            filtering_questions = list(map(lambda q: str(q["question"])+str(q["question_choices"]), questions))
-            filtering_question = question["question"]+str(page_questions[i]["question_choices"])
-            if filtering_question in filtering_questions:
-                prev_page = questions[filtering_questions.index(filtering_question)]['page_url'].split("sayfa=")[-1].strip()
-                print(f"Question on page '{page_n}' is a duplicate of a question on page '{prev_page}'")
-                page_questions.pop(i)
-                continue
+    return question
 
+def get_page_questions(n_page: int) -> list[dict]:  
+    try:
+        res = get_with_random_ua(BASE_PAGINATION_URL % n_page)
+        res.raise_for_status()
+    except requests.RequestException as e:
+        print(f"Failed to get page {n_page}: {e}")
+        return []    
+    
+    html = res.text
+    soup = BeautifulSoup(html, "html.parser")
+    bare_questions = soup.select("div.Question__text.hyphenate > a")
+    question_urls = [q.get("href") for q in bare_questions if q.get("href")]
+    
+    with ThreadPoolExecutor(max_workers=25) as executor:
+        questions = list(executor.map(get_question, question_urls))
 
-            # Get audio IF PRESENT
-            audio = page.query_selector("audio > source")
-            if audio:
-                audio_src = f"{BASE_URL}{audio.get_attribute('src')}"
-                page_questions[i]["audio"] = audio_src
-            
-        
-            if UPDATE:
-                pass
-                # TODO implement UPDATE function that adds the questions on runtime
+    
+    return [q for q in questions if q is not None]
+    
 
-        questions.extend(page_questions.copy())
+def threaded_fetch_pages(n_pages: int, max_workers: int = 5):
+    all_questions = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(get_page_questions, page): page for page in range(1, n_pages+1)}
+
+        for future in as_completed(futures):
+            page = futures[future]
+            try:
+                questions = future.result()
+                all_questions.extend(questions)
+                print(f"Page {page}: got {len(questions)} questions. Total so far: {len(all_questions)}")
+            except Exception as e:
+                print(f"Error fetching page {page}: {e}")
+    return all_questions
+
+if __name__ == "__main__":
+    START_TIME = time.time()
+    
+    n_questions = get_n_questions()
+    n_pages = get_n_pages()
+    print(f"{n_questions} questions spread across {n_pages} pages.")
         
-        
-        if REFRESH:
-            with open(f"data/questions-{RUNTIME}.json", "w", encoding="utf-8") as f:
-                json.dump(questions, f, ensure_ascii=False)
-            print(f"Scraped {len(questions)} questions.")
-        
-            
-        
+    all_questions = threaded_fetch_pages(n_pages, max_workers=5)    
+    print(f"Scraped total of {len(all_questions)}.")
+    
+    outfp = f"data/milyonist_{START_TIME}.json"
+    print(f"Dumping to {outfp}")
+    with open(outfp, "w", encoding="utf-8") as f:
+        json.dump(all_questions, f, ensure_ascii=False)
