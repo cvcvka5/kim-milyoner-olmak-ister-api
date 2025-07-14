@@ -32,7 +32,7 @@ def get_random(audio: bool = None, nth: int = None):
     try:
         return random.choice(choose_from)
     except IndexError:
-        raise HTTPException(status_code=422, detail="Filtrelere uygun soru bulunamadı.")
+        raise HTTPException(status_code=422, detail="Couldn't find a question matching your filters.")
 
 @app.get("/index")
 def get_random(index: int, audio: bool = None):
@@ -51,5 +51,5 @@ def get_random(index: int, audio: bool = None):
     except IndexError:
         raise HTTPException(
             status_code=422,
-            detail=f"Geçersiz indeks. En yüksek geçerli değer: {len(choose_from)-1}"
+            detail=f"Invalid index. Max value: {len(choose_from)-1}"
         )
