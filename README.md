@@ -17,44 +17,67 @@ This project is a web scraper and API server for trivia questions from the Turki
 
 ## API Documentation
 
-- https://kim-milyoner-olmak-ister-api.onrender.com
-
-### GET /random
-
-Returns a random question from the dataset, optionally filtered by audio presence and question number.
-
-#### Query Parameters
-
-| Parameter | Type    | Required | Description                                                                                  |
-|-----------|---------|----------|----------------------------------------------------------------------------------------------|
-| `audio`   | boolean | No       | Filter questions by audio presence: `true` for questions with audio, `false` for without.    |
-| `nth`     | integer | No       | Filter questions by the nth question number (contestant's question order).                    |
-
-#### Response
-
-- JSON object representing a single question matching the filters.
-
-#### Errors
-
-- **422 Unprocessable Entity**: No question found matching the filter criteria.
+This API provides access to quiz questions with optional filtering.
 
 ---
 
-### GET /index
+### GET `/random`
 
-Returns the question at the specified index, optionally filtered by audio presence.
+Returns a **random question** matching the optional filter criteria.
 
 #### Query Parameters
 
-| Parameter | Type    | Required | Description                                                                                  |
-|-----------|---------|----------|----------------------------------------------------------------------------------------------|
-| `index`   | integer | Yes      | Zero-based index of the question to return.                                                 |
-| `audio`   | boolean | No       | Filter questions by audio presence: `true` for questions with audio, `false` for without.    |
+| Parameter   | Type    | Required | Description                                                    |
+|-------------|---------|----------|----------------------------------------------------------------|
+| `audio`     | bool    | No       | Filter by presence of audio. `true` for audio only, `false` for no audio, omit for all. |
+| `nth`       | int     | No       | Filter questions by their nth question number.                 |
+| `contestant`| string  | No       | Filter questions by contestant name (case-insensitive, partial match). |
+| `correct`   | bool    | No       | Filter by whether contestant answered correctly (`true` or `false`). |
 
 #### Response
 
-- JSON object representing the question at the given index after applying the audio filter.
+- Returns a random question JSON object matching the filters.
+- If no questions match, returns HTTP 422 with detail:  
+  `"No question found matching the filter criteria."`
 
-#### Errors
+---
 
-- **422 Unprocessable Entity**: The requested index is out of range for the filtered questions list.
+### GET `/index`
+
+Returns the question at a specific **index** (after filtering).
+
+#### Query Parameters
+
+| Parameter   | Type    | Required | Description                                                    |
+|-------------|---------|----------|----------------------------------------------------------------|
+| `index`     | int     | No       | Index of the question in the filtered list. If omitted, returns the full filtered list. |
+| `audio`     | bool    | No       | Filter by presence of audio. `true` for audio only, `false` for no audio, omit for all. |
+| `nth`       | int     | No       | Filter questions by their nth question number.                 |
+| `contestant`| string  | No       | Filter questions by contestant name (case-insensitive, partial match). |
+| `correct`   | bool    | No       | Filter by whether contestant answered correctly (`true` or `false`). |
+
+#### Response
+
+- Returns the question JSON object at the requested index from the filtered list.
+- If `index` is omitted, returns the full filtered question list.
+- If `index` is out of range, returns HTTP 422 with detail:  
+  `"The requested index is out of range for the filtered questions list. Max value: {max_index}"`
+
+---
+
+## Data Schema (Question Object)
+
+```json
+{
+  "question": "string (the question text)",
+  "choices": { "a": "wrong", "B": "correct choice is uppercase", "c": "wrong", "d": "wrong" },
+  "answer": "string (correct choice letter)",
+  "question-url": "string (URL to the question page)",
+  "audio": "string|null (URL to audio if available)",
+  "contestant": {
+    "name": "string (contestant's name)",
+    "answer": "string (contestant's answer letter)",
+    "correct": "boolean (contestant's response result)",
+    "nth-question": "int (question number for the contestant)"
+  }
+}
