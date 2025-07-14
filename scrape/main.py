@@ -77,7 +77,8 @@ with sync_playwright() as pw:
             filtering_questions = list(map(lambda q: str(q["question"])+str(q["question_choices"]), questions))
             filtering_question = question["question"]+str(page_questions[i]["question_choices"])
             if filtering_question in filtering_questions:
-                print(f"Question on page '{page_n}' is a duplicate of a question in page '{questions[list(map(lambda question: question["question"], questions)).index(question)]}'")
+                prev_page = questions[filtering_questions.index(filtering_question)]['page_url'].split("sayfa=")[-1].strip()
+                print(f"Question on page '{page_n}' is a duplicate of a question in page '{prev_page}'")
                 page_questions.pop(i)
                 continue
 
