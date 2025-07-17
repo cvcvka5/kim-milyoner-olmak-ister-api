@@ -5,7 +5,7 @@
         "src": "api/main.js",
         "use": "@vercel/node",
         "config": {
-          "nodeVersion": "18.x"
+          "nodeVersion": "22.x"
         }
       },
       {
@@ -13,7 +13,7 @@
         "use": "@vercel/static-build",
         "config": {
           "distDir": "dist",
-          "nodeVersion": "18.x"
+          "nodeVersion": "22.x"
         }
       }
     ],
