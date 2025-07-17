@@ -663,13 +663,12 @@ const App = () => {
                 <div className="contestant-result">
                   <p className="contestant-name">
                     <strong>{currentQuestion?.contestant.name}</strong>
-                    &nbsp;yarışmada bu soruya
-                    <strong></strong>
+                    &nbsp;yarışmada bu soru
                     {!currentQuestion?.contestant.answer ? 
-                      ' çekilerek elendi.' : 
+                      'da çekilerek elendi.' : 
                       currentQuestion?.contestant.correct ? 
-                        ' doğru cevap verdi.' : 
-                        ` ${currentQuestion?.contestant.answer?.toUpperCase()} diyerek yanlış cevap verdi.`
+                        'ya doğru cevap verdi.' : 
+                        `ya ${currentQuestion?.contestant.answer?.toUpperCase()} diyerek yanlış cevap verdi.`
                     } 
                   </p>
                 </div>
