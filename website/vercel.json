@@ -3,13 +3,17 @@
     "builds": [
       {
         "src": "api/main.js",
-        "use": "@vercel/node"
+        "use": "@vercel/node",
+        "config": {
+          "nodeVersion": "18.x"
+        }
       },
       {
         "src": "package.json",
         "use": "@vercel/static-build",
         "config": {
-          "distDir": "dist"
+          "distDir": "dist",
+          "nodeVersion": "18.x"
         }
       }
     ],
