@@ -72,6 +72,8 @@ body::before {
   margin-bottom: 1rem;
   position: relative;
   font-family: 'Segoe UI', 'Arial', sans-serif;
+  display: flex;
+  justify-content: center;
 }
 
 /* Horizontal line */
