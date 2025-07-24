@@ -1,5 +1,7 @@
 # Milyonist API
 [Milyoner on Vercel](https://milyoner.vercel.app)
+![Website img](https://i.imgur.com/mSUMSLh_d.webp?maxwidth=1200&fidelity=grand)
+![Website img](https://i.imgur.com/pmFxRVN.png)
 
 This project is a web scraper and API server for trivia questions from the Turkish quiz show "Milyonist". It scrapes questions, answers, contestant info, and audio clips from milyonist.com, then serves them through a FastAPI-based API.
 
