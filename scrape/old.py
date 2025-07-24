@@ -4,6 +4,8 @@ import sys
 import json
 import time
 
+# REALLY SLOW DON'T USE THIS
+
 RUNTIME = time.time()
 args = list(map(lambda arg: arg.lower(), sys.argv[1:]))
 REFRESH = 0
