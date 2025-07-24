@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&family=Rajdhani:wght@300;400;500;600;700&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
+
+:root {
+  --color-primary: #152238;    /* Dark Navy - main background */
+  --color-secondary: #2A3F5F;  /* Muted Blue - cards and boxes */
+  --color-accent: #FFD700;     /* Gold - buttons and highlights */
+  --color-danger: #FF4C4C;     /* Bright Red - wrong answers */
+  --color-success: #4CAF50;    /* Green - correct answers */
+}
+
+body {
+position: absolute;
+inset: 0; /* top: 0; right: 0; bottom: 0; left: 0; */
+left: 0;
+top: 0;
+transform: none;
+background: radial-gradient(
+  circle at center,
+  rgba(255, 255, 255, 0.2),  /* from-white/20 */
+  transparent,               /* via-transparent */
+  transparent                /* to-transparent */
+);
+}
+
+.title-sequence {
+  width: 50vw;
+}
+
+.title {
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 700;
+  font-style: normal;
+} 

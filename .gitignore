@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+.env
+
+# Vercel
+.vercel/
+
+# Build outputs
+website/dist/
+website/.vite/
+
+# Ignore all data except the API data file
+!/api/milyonist_data.json
+
+# Ignore scrape outputs
+scrape/*.log
+scrape/__pycache__/
